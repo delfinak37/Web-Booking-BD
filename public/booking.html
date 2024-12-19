@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Бронирование столов</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md relative">
+    <div id="user-info" class="absolute top-4 right-4 text-sm text-gray-700">
+      <span id="user-login">Логин: </span><br>
+      <span id="user-name">Имя: </span>
+    </div>
+
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-semibold">Бронирование стола для настольных игр</h2>
+    </div>
+
+    <form id="booking-form">
+      <div class="mb-4">
+        <label for="table_id" class="block text-gray-700">Выберите стол</label>
+        <select id="table_id" name="table_id" class="w-full p-2 border border-gray-300 rounded" required>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label for="booking_date" class="block text-gray-700">Дата бронирования</label>
+        <input type="date" id="booking_date" name="booking_date" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="booking_time" class="block text-gray-700">Время начала</label>
+        <input type="time" id="booking_time" name="booking_time" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="booking_end_time" class="block text-gray-700">Время окончания</label>
+        <input type="time" id="booking_end_time" name="booking_end_time" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="people_count" class="block text-gray-700">Количество людей</label>
+        <input type="number" id="people_count" name="people_count" min="1" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition mb-4">Забронировать</button>
+    </form>
+
+    <button onclick="logout()" class="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600 transition">
+      Выйти
+    </button>
+
+    <h3 class="text-xl font-semibold mt-8 mb-4">Мои бронирования</h3>
+    <table id="bookings-table" class="w-full table-auto mt-4 border-collapse border border-gray-300">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="border px-4 py-2">Стол</th>
+          <th class="border px-4 py-2">Дата</th>
+          <th class="border px-4 py-2">Время</th>
+          <th class="border px-4 py-2">Количество людей</th>
+          <th class="border px-4 py-2">Статус оплаты</th>
+          <th class="border px-4 py-2">Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) {
+        alert('Пожалуйста, войдите в систему');
+        window.location.href = '/login.html';
+    }
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '/';
+    }
+
+    async function loadUserInfo() {
+        try {
+            const response = await fetch('http://localhost:5000/user/info', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                document.getElementById('user-name').textContent = `Имя: ${userData.first_name}`;
+                document.getElementById('user-login').textContent = `Логин: ${userData.login_id}`;
+            } else {
+                alert('Не удалось загрузить информацию о пользователе');
+            }
+        } catch (err) {
+            alert('Ошибка соединения с сервером');
+        }
+    }
+
+    async function loadTables() {
+        try {
+            const response = await fetch('http://localhost:5000/tables', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const tablesSelect = document.getElementById('table_id');
+                data.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table.table_id;
+                    option.textContent = `Стол ${table.table_id}`;
+                    tablesSelect.appendChild(option);
+                });
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Произошла ошибка при загрузке столов');
+            }
+        } catch (err) {
+            alert('Ошибка соединения с сервером');
+        }
+    }
+
+    async function cancelBooking(bookingId) {
+        if (confirm('Вы уверены, что хотите отменить бронирование?')) {
+            try {
+                const response = await fetch(`http://localhost:5000/bookings/${bookingId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    alert('Бронирование отменено');
+                    loadBookings();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Произошла ошибка при отмене бронирования');
+                }
+            } catch (err) {
+                alert('Ошибка соединения с сервером');
+            }
+        }
+    }
+
+    async function loadBookings() {
+        try {
+            const response = await fetch('http://localhost:5000/bookings/user', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const bookingsTable = document.getElementById('bookings-table').getElementsByTagName('tbody')[0];
+                bookingsTable.innerHTML = '';
+
+                data.forEach(booking => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="border px-4 py-2">${booking.table_id}</td>
+                        <td class="border px-4 py-2">${booking.booking_date}</td>
+                        <td class="border px-4 py-2">${booking.booking_time} - ${booking.booking_end_time}</td>
+                        <td class="border px-4 py-2">${booking.people_count}</td>
+                        <td class="border px-4 py-2">${booking.payment_status || 'Не оплачено'}</td>
+                        <td class="border px-4 py-2">
+                            <button class="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition" onclick="cancelBooking(${booking.booking_id})">
+                                Отменить
+                            </button>
+                        </td>
+                    `;
+                    bookingsTable.appendChild(row);
+                });
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Произошла ошибка при загрузке бронирований');
+            }
+        } catch (err) {
+            alert('Ошибка соединения с сервером');
+        }
+    }
+
+    document.getElementById('booking-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const table_id = document.getElementById('table_id').value;
+        const booking_date = document.getElementById('booking_date').value;
+        const booking_time = document.getElementById('booking_time').value;
+        const booking_end_time = document.getElementById('booking_end_time').value;
+        const people_count = document.getElementById('people_count').value;
+
+        const today = new Date();
+        today.setDate(today.getDate() + 1);
+        const tomorrow = today.toISOString().split('T')[0];
+
+        if (booking_date < tomorrow) {
+            alert('Вы не можете забронировать стол на эту дату. Выберите дату, начиная с завтрашнего дня.');
+            return;
+        }
+
+        try {
+            const response = await fetch('http://localhost:5000/bookings', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ table_id, booking_date, booking_time, booking_end_time, people_count })
+            });
+
+            if (response.ok) {
+                alert('Бронирование успешно!');
+                loadBookings();
+            } else {
+                const error = await response.json();
+                alert(error.error || 'Произошла ошибка при бронировании');
+            }
+        } catch (err) {
+            alert('Ошибка соединения с сервером');
+        }
+    });
+
+    loadUserInfo();
+    loadTables();
+    loadBookings();
+  </script>
+</body>
+</html>

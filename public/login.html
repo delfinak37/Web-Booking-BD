@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+
+  <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-semibold text-center mb-6">Вход</h2>
+    <form id="loginForm">
+      <div class="mb-4">
+        <label for="login_id" class="block text-gray-700">Логин:</label>
+        <input type="text" id="login_id" name="login_id" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <div class="mb-4">
+        <label for="password" class="block text-gray-700">Пароль:</label>
+        <input type="password" id="password" name="password" class="w-full p-2 border border-gray-300 rounded" required>
+      </div>
+
+      <button type="submit" class="w-full bg-blue-500 text-white p-2 rounded">Войти</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+
+      const login_id = document.getElementById('login_id').value;
+      const password = document.getElementById('password').value;
+
+      const response = await fetch('http://localhost:5000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ login_id, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        window.location.href = data.redirect;
+      } else {
+        alert(data.error || 'Произошла ошибка');
+      }
+    });
+  </script>
+</body>
+</html>

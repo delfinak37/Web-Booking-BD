@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ Панель</title>
+  <link rel="stylesheet" href="adminstyle.css">
+</head>
+<body>
+  <h1>Админ Панель</h1>
+  <section>
+    <h2>Список бронирований</h2>
+    <table id="bookingTable">
+      <thead>
+        <tr>
+          <th>Номер бронирования</th>
+          <th>Стол</th>
+          <th>Дата</th>
+          <th>Время начала</th>
+          <th>Время окончания</th>
+          <th>Количество людей</th>
+          <th>Статус оплаты</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Изменение статуса оплаты</h2>
+    <form id="update-payment-form">
+      <label for="booking_id">Номер бронирования:</label>
+      <select id="booking_id" required>
+      </select>
+      <label for="payment_status">Статус оплаты:</label>
+      <select id="payment_status">
+        <option value="не оплачено">Не оплачено</option>
+        <option value="оплачено">Оплачено</option>
+      </select>
+      <button type="submit" id="update-status-btn">Обновить статус</button>
+    </form>
+    <p id="update-status-message"></p>
+  </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async function() {
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      async function loadBookings() {
+        const bookingResponse = await fetch('http://localhost:5000/admin/bookings', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
+        });
+
+        if (bookingResponse.ok) {
+          const bookings = await bookingResponse.json();
+          const tableBody = document.getElementById('bookingTable').getElementsByTagName('tbody')[0];
+          tableBody.innerHTML = '';
+
+          bookings.forEach(booking => {
+            const bookingDate = new Date(booking.booking_date);
+            const formattedDate = bookingDate.toLocaleDateString('ru-RU'); 
+
+            const row = tableBody.insertRow();
+            row.innerHTML = `
+              <td>${booking.booking_id}</td>
+              <td>${booking.table_id}</td>
+              <td>${formattedDate}</td>
+              <td>${booking.booking_time}</td>
+              <td>${booking.booking_end_time}</td>
+              <td>${booking.people_count}</td>
+              <td>${booking.payment_status || 'Не указано'}</td>
+            `;
+          });
+
+          const bookingSelect = document.getElementById('booking_id');
+          bookingSelect.innerHTML = '';
+          bookings.forEach(booking => {
+            const option = document.createElement('option');
+            option.value = booking.booking_id;
+            option.textContent = `№${booking.booking_id}`;
+            bookingSelect.appendChild(option);
+          });
+        } else {
+          alert('Ошибка при получении данных о бронированиях');
+        }
+      }
+
+      await loadBookings();
+
+      setInterval(loadBookings, 20000);
+
+      document.getElementById('update-payment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const token = localStorage.getItem('token');
+        const bookingId = document.getElementById('booking_id').value;
+        const paymentStatus = document.getElementById('payment_status').value;
+
+        if (!token) {
+          alert('Пожалуйста, войдите в систему');
+          return;
+        }
+
+        try {
+          const response = await fetch('http://localhost:5000/update-payment-status', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ booking_id: bookingId, payment_status: paymentStatus }),
+          });
+
+          const data = await response.json();
+          if (response.ok) {
+            document.getElementById('update-status-message').textContent = 'Статус оплаты успешно обновлен.';
+            await loadBookings();
+          } else {
+            document.getElementById('update-status-message').textContent = data.error;
+          }
+        } catch (error) {
+          console.error('Ошибка:', error);
+          document.getElementById('update-status-message').textContent = 'Произошла ошибка при обновлении статуса.';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
